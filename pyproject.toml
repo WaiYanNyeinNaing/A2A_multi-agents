@@ -1,0 +1,51 @@
+[project]
+name = "a2a-multi-agent-system"
+version = "1.0.0"
+description = "A2A Protocol Multi-Agent System using Google Gemini and ADK"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [
+    {name = "A2A Team"}
+]
+requires-python = ">=3.9"
+dependencies = [
+    "google-generativeai",
+    "google-adk",
+    "fastapi",
+    "uvicorn",
+    "httpx",
+    "pydantic",
+    "python-dotenv",
+    "python-multipart",
+    "requests"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest",
+    "pytest-asyncio",
+    "black",
+    "isort",
+    "mypy"
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.black]
+line-length = 88
+target-version = ['py39']
+
+[tool.isort]
+profile = "black"
+line_length = 88
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["agents", "core", "tools", "servers"]

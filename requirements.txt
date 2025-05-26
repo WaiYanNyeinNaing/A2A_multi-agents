@@ -1,0 +1,21 @@
+# A2A Multi-Agent System Dependencies
+# Using latest versions for best features and security
+
+# Core dependencies
+google-generativeai
+google-adk
+fastapi
+uvicorn
+httpx
+pydantic
+python-dotenv
+python-multipart
+requests
+
+# Development dependencies (optional)
+# Uncomment if you want development tools:
+# pytest
+# pytest-asyncio
+# black
+# isort
+# mypy
