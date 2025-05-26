@@ -56,39 +56,80 @@ class AssistantAgent(BaseAgent):
             return self.create_error_response(str(e), "coordination_error")
 
     def _analyze_request_sync(self, user_input: str) -> Dict[str, Any]:
-        """Analyze user request to determine which agents to involve."""
+        """Analyze user request to determine which agents to involve using Gemini LLM."""
         prompt = f'''
-        Analyze this user request to determine which agents should be involved:
-        
-        Request: "{user_input}"
-        
-        Available agents:
-        - image: Generate images, create visuals, edit images
-        - writing: Content creation, text editing, creative writing
-        - research: Web search, fact-checking, information gathering  
-        - report: Comprehensive reports, data analysis, structured documents
-        
-        Respond with JSON only:
-        {{
-            "required_agents": ["agent1", "agent2"],
-            "primary_task": "brief description",
-            "coordination_strategy": "sequential|parallel|hybrid"
-        }}
-        '''
+You are an intelligent request analyzer for a multi-agent system. Analyze the user request and determine which specialized agents should handle it.
+
+Available agents:
+- image: Generate images, create visuals, illustrations, photos, artwork
+- writing: Create articles, stories, content, text-based responses  
+- research: Web search, fact-checking, gather information, investigate topics
+- report: Create comprehensive reports, analyze data, structured documents
+
+Examples:
+
+User: "Create a picture of a sunset over mountains"
+Analysis: {{"required_agents": ["image"], "primary_task": "image generation", "coordination_strategy": "sequential"}}
+
+User: "Draw me a cute cartoon cat"  
+Analysis: {{"required_agents": ["image"], "primary_task": "image generation", "coordination_strategy": "sequential"}}
+
+User: "Write an article about renewable energy"
+Analysis: {{"required_agents": ["writing"], "primary_task": "content creation", "coordination_strategy": "sequential"}}
+
+User: "Research the latest developments in AI technology"
+Analysis: {{"required_agents": ["research"], "primary_task": "information gathering", "coordination_strategy": "sequential"}}
+
+User: "Find information about climate change and create a comprehensive report"
+Analysis: {{"required_agents": ["research", "report"], "primary_task": "research and reporting", "coordination_strategy": "sequential"}}
+
+User: "Research renewable energy trends and create an article with solar panel images"
+Analysis: {{"required_agents": ["research", "writing", "image"], "primary_task": "multi-modal content creation", "coordination_strategy": "sequential"}}
+
+User: "Make an illustration showing the water cycle"
+Analysis: {{"required_agents": ["image"], "primary_task": "educational illustration", "coordination_strategy": "sequential"}}
+
+User: "Generate a logo for my company"
+Analysis: {{"required_agents": ["image"], "primary_task": "logo design", "coordination_strategy": "sequential"}}
+
+Now analyze this request:
+User: "{user_input}"
+Analysis: '''
         
         try:
             response = self.call_gemini_api(prompt)
-            # Parse JSON response - simplified for now
-            if "image" in user_input.lower() or "visual" in user_input.lower():
+            
+            # Try to parse JSON response from Gemini
+            import json
+            try:
+                # Look for JSON in the response
+                json_start = response.find('{')
+                json_end = response.rfind('}') + 1
+                if json_start >= 0 and json_end > json_start:
+                    json_str = response[json_start:json_end]
+                    parsed = json.loads(json_str)
+                    
+                    # Validate the parsed response has required fields
+                    if "required_agents" in parsed and "primary_task" in parsed:
+                        return parsed
+            except Exception as e:
+                print(f"JSON parsing error: {e}")
+            
+            # Fallback: simple keyword-based analysis
+            user_lower = user_input.lower()
+            
+            if any(word in user_lower for word in ["image", "picture", "photo", "draw", "sketch", "illustration", "visual", "artwork", "logo", "graphic"]):
                 return {"required_agents": ["image"], "primary_task": "image generation", "coordination_strategy": "sequential"}
-            elif "research" in user_input.lower() or "find" in user_input.lower():
+            elif any(word in user_lower for word in ["research", "find", "search", "investigate", "study"]):
                 return {"required_agents": ["research"], "primary_task": "research", "coordination_strategy": "sequential"}
-            elif "report" in user_input.lower():
+            elif any(word in user_lower for word in ["report", "analysis", "comprehensive"]):
                 return {"required_agents": ["research", "report"], "primary_task": "report creation", "coordination_strategy": "sequential"}
             else:
                 return {"required_agents": ["writing"], "primary_task": "text generation", "coordination_strategy": "sequential"}
-        except:
-            # Fallback analysis
+            
+        except Exception as e:
+            print(f"Analysis error: {e}")
+            # Ultimate fallback
             return {"required_agents": ["writing"], "primary_task": "general assistance", "coordination_strategy": "sequential"}
 
     def _coordinate_agents_sync(self, analysis: Dict[str, Any], user_input: str) -> Dict[str, Any]:

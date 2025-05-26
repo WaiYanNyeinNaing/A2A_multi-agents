@@ -286,7 +286,19 @@ class A2AServer:
             
             # Check for image data in agent results
             agent_results = result.get("agent_results", {})
-            if "image_result" in agent_results:
+            
+            # Handle image agent results
+            if "image" in agent_results:
+                image_result = agent_results["image"]
+                if image_result.get("success") and image_result.get("artifacts"):
+                    # Extract image artifacts from the image agent response
+                    for artifact in image_result["artifacts"]:
+                        for part in artifact.get("parts", []):
+                            if part.get("type") == "file":
+                                parts.append(part)
+            
+            # Legacy support for old format
+            elif "image_result" in agent_results:
                 image_result = agent_results["image_result"]
                 if image_result.get("success") and "image_data" in image_result:
                     parts.append({
