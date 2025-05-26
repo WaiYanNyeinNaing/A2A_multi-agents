@@ -285,3 +285,16 @@ UV automatically creates `uv.lock` for reproducible installations across environ
 4. **Monitoring**: Add logging and metrics
 5. **Documentation**: API documentation with examples
 6. **Docker**: Containerization for easy deployment
+
+## 👨‍💻 Author
+
+**Dr. Wai Yan Nyein Naing**
+- GitHub: [@WaiYanNyeinNaing](https://github.com/WaiYanNyeinNaing)
+
+## 🤝 Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.

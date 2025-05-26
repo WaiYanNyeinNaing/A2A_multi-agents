@@ -5,7 +5,7 @@ description = "A2A Protocol Multi-Agent System using Google Gemini and ADK"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [
-    {name = "A2A Team"}
+    {name = "Dr. Wai Yan Nyein Naing"}
 ]
 requires-python = ">=3.9"
 dependencies = [
