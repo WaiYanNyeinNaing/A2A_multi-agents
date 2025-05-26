@@ -102,12 +102,6 @@ uv run python tools/interactive_interface.py
 
 ## 🛠️ Key Features
 
-### Clean Architecture
-- **Modular Design**: Separated concerns with clear boundaries
-- **Inheritance Hierarchy**: Common functionality in base classes
-- **Standardized Naming**: Consistent file and class naming conventions
-- **Type Safety**: Full type hints throughout
-
 ### A2A Protocol Benefits
 - **Auto-discovery**: Agents advertise capabilities via Agent Cards
 - **Async Processing**: Non-blocking task execution
