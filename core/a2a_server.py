@@ -253,7 +253,24 @@ class A2AServer:
         # Handle different result types
         if "content" in result:  # Writing agent
             parts.append({"type": "text", "text": result["content"]})
-        elif "image_data" in result:  # Image agent with base64 data
+        elif "file_path" in result and "generation_successful" in result:  # New file-based image agent
+            # For file-based image generation, return file info as text
+            file_path = result.get("file_path", "unknown")
+            file_name = result.get("file_name", "unknown")
+            file_size = result.get("file_size_kb", 0)
+            log_message = result.get("log_message", "Image generated")
+            
+            parts.append({
+                "type": "text", 
+                "text": f"""🎨 Image Generated Successfully!
+
+📁 File saved to: {file_path}
+📋 Filename: {file_name}
+📊 File size: {file_size} KB
+
+{log_message}"""
+            })
+        elif "image_data" in result:  # Legacy base64 image data
             parts.append({
                 "type": "file",
                 "file": {

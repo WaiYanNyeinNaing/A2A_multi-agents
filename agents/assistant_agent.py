@@ -181,17 +181,45 @@ Analysis: '''
 
     def _generate_final_response_sync(self, user_input: str, analysis: Dict[str, Any], agent_results: Dict[str, Any]) -> str:
         """Generate final response combining all agent results."""
-        prompt = f'''
-        Generate a final response to the user based on these results:
         
-        User Request: "{user_input}"
-        Analysis: {analysis}
-        Agent Results: {agent_results}
+        # Handle image generation results specifically
+        if "image" in agent_results:
+            image_result = agent_results["image"]
+            if image_result.get("success") and image_result.get("generation_successful"):
+                file_path = image_result.get("file_path", "unknown")
+                file_name = image_result.get("file_name", "unknown")
+                file_size = image_result.get("file_size_kb", 0)
+                prompt_info = image_result.get("prompt", {})
+                
+                return f"""✅ Image generated successfully!
+
+📁 **File Details:**
+- **Saved to:** {file_path}
+- **Filename:** {file_name} 
+- **File size:** {file_size} KB
+
+🎨 **Generation Details:**
+- **Your prompt:** {prompt_info.get('original', user_input)}
+- **Style:** {prompt_info.get('style', 'professional')}
+- **Enhanced prompt:** {prompt_info.get('enhanced', 'N/A')}
+
+The image has been saved locally and is ready for use!"""
+            
+            elif image_result.get("error"):
+                return f"❌ Image generation failed: {image_result.get('error')}"
         
-        Provide a helpful, comprehensive response that incorporates the results from all agents.
-        '''
-        
+        # Handle other agent results
         try:
+            prompt = f'''
+            Generate a concise, helpful response to the user based on these results:
+            
+            User Request: "{user_input}"
+            Analysis: {analysis}
+            Agent Results: {agent_results}
+            
+            Provide a clear summary of what was accomplished.
+            '''
+            
             return self.call_gemini_api(prompt)
         except:
             return "I've processed your request using multiple specialized agents. Please check the individual agent results for details."
