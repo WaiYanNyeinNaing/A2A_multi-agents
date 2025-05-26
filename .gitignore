@@ -58,6 +58,7 @@ logs/
 my_results/
 temp/
 tmp/
+generated_images/
 
 # UV lock file (optional, but recommended to include for reproducibility)
 # uv.lock
