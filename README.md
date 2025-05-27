@@ -271,18 +271,6 @@ uv run python test_individual_agents.py
 - `tools/`: Interactive interfaces and utilities
 - `examples/`: Example implementations and demos
 
-## 🔄 Migration from Old Structure
-
-Old files have been refactored and consolidated:
-- `gemini_assistant_agent.py` → `agents/assistant_agent.py`
-- `image_generation_agent.py` → `agents/image_agent.py`  
-- `writing_agent.py` → `agents/writing_agent.py`
-- `a2a_client.py` → `core/a2a_client.py`
-- `run_*_server.py` → `servers/*_server.py`
-- `interactive_agent_interface.py` → `tools/interactive_interface.py`
-- `research_agent_openai_sdk.py` → `examples/` (unrelated to A2A)
-
-All import statements and references have been updated accordingly.
 
 ## 📦 Dependencies & Lock Files
 
