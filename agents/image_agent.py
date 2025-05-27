@@ -47,18 +47,23 @@ class ImageAgent(BaseAgent):
             # Create enhanced prompt
             enhanced_prompt = self._enhance_prompt(prompt, style)
             
-            # Generate image using Imagen
+            # Generate image using Imagen - explicitly request only 1 image
             response = self.gemini_client.models.generate_images(
                 model=self.image_model,
                 prompt=enhanced_prompt,
                 config=types.GenerateImagesConfig(
-                    number_of_images=1,
+                    number_of_images=1,  # Explicitly only 1 image
                     aspect_ratio=aspect_ratio
                 )
             )
             
-            if response.generated_images:
+            if response.generated_images and len(response.generated_images) > 0:
+                # Always use only the first image, ignore any additional ones
                 image_bytes = response.generated_images[0].image.image_bytes
+                
+                self.logger.info(f"📊 Received {len(response.generated_images)} image(s) from API, using first one only")
+                if len(response.generated_images) > 1:
+                    self.logger.warning(f"⚠️ API returned {len(response.generated_images)} images, but only processing 1 as requested")
                 
                 # Save image to local file
                 save_result = self._save_image_to_file(image_bytes, prompt, style)
@@ -107,16 +112,28 @@ class ImageAgent(BaseAgent):
             prompt_snippet = "".join(c for c in prompt[:30] if c.isalnum() or c in (' ', '-', '_')).strip()
             prompt_snippet = "_".join(prompt_snippet.split())  # Replace spaces with underscores
             
-            # Build filename
+            # Build filename with guaranteed uniqueness
             filename = f"{timestamp}_{prompt_snippet}_{style}_{image_id}.png"
             file_path = self.images_dir / filename
             
-            # Save image
+            # Ensure file doesn't already exist (though it shouldn't with unique ID)
+            counter = 1
+            original_file_path = file_path
+            while file_path.exists():
+                self.logger.warning(f"⚠️ File {filename} already exists, adding counter")
+                name_parts = filename.rsplit('.', 1)
+                filename = f"{name_parts[0]}_{counter}.{name_parts[1]}"
+                file_path = self.images_dir / filename
+                counter += 1
+            
+            # Save single image file
             with open(file_path, 'wb') as f:
                 f.write(image_bytes)
             
             # Calculate file size
             file_size_kb = round(len(image_bytes) / 1024, 2)
+            
+            self.logger.info(f"💾 Saved single image: {filename} ({file_size_kb} KB)")
             
             return {
                 "success": True,
