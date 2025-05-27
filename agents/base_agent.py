@@ -1,111 +1,149 @@
-# agents/base_agent.py
 """
-Base Agent Class for A2A Multi-Agent System
-- Common functionality and patterns shared across all agents
-- Standardized initialization and setup
-- Abstract methods for specialized implementations
+Base Agent class providing common functionality for all A2A agents.
 """
 
-import os
-import uuid
 import logging
-from abc import ABC, abstractmethod
-from datetime import datetime
-from typing import Dict, Any, Optional
-from dotenv import load_dotenv
+import uuid
+from typing import Dict, Any, List
+import google.generativeai as genai
 
-# Google Generative AI imports
-from google import genai
-from google.genai import types
-
-# Load environment variables
-load_dotenv()
-
-# Configure logging
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class BaseAgent(ABC):
-    """
-    Abstract base class for all A2A agents
-    """
+class BaseAgent:
+    """Base class for all A2A agents with common functionality."""
     
-    def __init__(self, agent_type: str, default_model: str = 'gemini-2.0-flash-exp'):
-        self.agent_type = agent_type
-        self.gemini_client = None
-        self.model_name = os.getenv('GEMINI_MODEL_NAME', default_model)
-        self.api_key = os.getenv('GEMINI_API_KEY')
+    def __init__(self, name: str, model_name: str = "gemini-2.0-flash-exp"):
+        """Initialize base agent with name and model."""
+        self.name = name
+        self.model_name = model_name
+        self.logger = logging.getLogger(name)
         
-        if not self.api_key:
-            raise ValueError("GEMINI_API_KEY not found in environment variables")
-        
-        self.initialize_gemini_client()
-    
-    def initialize_gemini_client(self):
-        """Initialize Gemini client with common setup."""
-        try:
-            # Setup proxy if needed
-            proxy_url = os.getenv('HTTP_PROXY')
-            if proxy_url:
-                os.environ["http_proxy"] = proxy_url
-                os.environ["https_proxy"] = proxy_url
-            
-            self.gemini_client = genai.Client(api_key=self.api_key)
-            logger.info(f"✅ Gemini client initialized for {self.agent_type}")
-            
-        except ImportError:
-            logger.error("❌ google-genai package not installed")
-            raise
-        except Exception as e:
-            logger.error(f"❌ Failed to initialize Gemini client: {e}")
-            raise
-    
-    @abstractmethod
-    def get_agent_info(self) -> Dict[str, Any]:
-        """Get information about this agent."""
-        pass
-    
     def generate_unique_id(self) -> str:
-        """Generate unique ID for tasks/artifacts."""
+        """Generate a unique ID for tasks and responses."""
         return str(uuid.uuid4())
     
-    def get_timestamp(self) -> str:
-        """Get current timestamp in ISO format."""
-        return datetime.now().isoformat()
-    
-    def create_success_response(self, **kwargs) -> Dict[str, Any]:
-        """Create standardized success response."""
-        return {
-            "success": True,
-            "timestamp": self.get_timestamp(),
-            "agent": self.agent_type,
-            **kwargs
-        }
-    
-    def create_error_response(self, error: str, error_type: str = "execution_error") -> Dict[str, Any]:
-        """Create standardized error response."""
-        logger.error(f"❌ {self.agent_type} error: {error}")
-        return {
-            "success": False,
-            "error": error,
-            "error_type": error_type,
-            "timestamp": self.get_timestamp(),
-            "agent": self.agent_type
-        }
-    
-    def call_gemini_api(self, prompt: str, **kwargs) -> str:
-        """Common method to call Gemini API."""
-        try:
-            response = self.gemini_client.models.generate_content(
-                model=self.model_name,
-                contents=[types.Content(
-                    role="user",
-                    parts=[types.Part(text=prompt)]
-                )]
-            )
+    def call_gemini_api(self, prompt: str) -> str:
+        """
+        Make a call to Gemini API with the given prompt.
+        
+        Args:
+            prompt: The prompt to send to Gemini
             
-            return response.candidates[0].content.parts[0].text
+        Returns:
+            Generated text response
+        """
+        try:
+            # Load environment variables if not already loaded
+            from dotenv import load_dotenv
+            load_dotenv()
+            
+            import os
+            
+            self.logger.debug(f"🤖 Calling Gemini API with prompt: {prompt[:100]}...")
+            
+            # Configure Gemini API with the key from environment
+            api_key = os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY')
+            if not api_key:
+                raise ValueError("No GEMINI_API_KEY or GOOGLE_API_KEY found in environment")
+            
+            # Configure and use Gemini API
+            genai.configure(api_key=api_key)
+            model = genai.GenerativeModel(self.model_name)
+            response = model.generate_content(prompt)
+            
+            result = response.text
+            self.logger.debug(f"✅ Gemini API response: {result[:100]}...")
+            return result
             
         except Exception as e:
-            logger.error(f"❌ Gemini API call failed: {e}")
+            self.logger.error(f"❌ Gemini API call failed: {e}")
             raise
+    
+    def create_success_response(self, **kwargs) -> Dict[str, Any]:
+        """
+        Create a standardized success response.
+        
+        Args:
+            **kwargs: Key-value pairs to include in the response
+            
+        Returns:
+            Standardized success response dictionary
+        """
+        response = {
+            "success": True,
+            "agent": self.name,
+            "timestamp": self.generate_unique_id(),
+            **kwargs
+        }
+        
+        self.logger.info(f"✅ Success response created: {list(kwargs.keys())}")
+        return response
+    
+    def create_error_response(self, error_message: str, error_type: str = "generic_error") -> Dict[str, Any]:
+        """
+        Create a standardized error response.
+        
+        Args:
+            error_message: Description of the error
+            error_type: Type/category of the error
+            
+        Returns:
+            Standardized error response dictionary
+        """
+        response = {
+            "success": False,
+            "agent": self.name,
+            "error": error_message,
+            "error_type": error_type,
+            "timestamp": self.generate_unique_id()
+        }
+        
+        self.logger.error(f"❌ Error response created: {error_message}")
+        return response
+    
+    def create_text_artifact(self, content: str, title: str = None, content_type: str = "text") -> Dict[str, Any]:
+        """
+        Create a text artifact for A2A responses.
+        
+        Args:
+            content: The text content
+            title: Optional title for the artifact
+            content_type: Type of content (text, markdown, etc.)
+            
+        Returns:
+            Artifact dictionary
+        """
+        artifact = {
+            "type": content_type,
+            "content": content,
+            "title": title or f"{self.name} Response",
+            "id": self.generate_unique_id()
+        }
+        
+        self.logger.debug(f"📄 Text artifact created: {len(content)} characters")
+        return artifact
+    
+    def create_file_artifact(self, file_path: str, file_name: str, file_size_kb: float = None, description: str = None) -> Dict[str, Any]:
+        """
+        Create a file artifact for A2A responses.
+        
+        Args:
+            file_path: Path to the file
+            file_name: Name of the file
+            file_size_kb: Size of file in KB
+            description: Optional description
+            
+        Returns:
+            Artifact dictionary
+        """
+        artifact = {
+            "type": "file",
+            "file_path": file_path,
+            "file_name": file_name,
+            "file_size_kb": file_size_kb,
+            "description": description or f"File generated by {self.name}",
+            "id": self.generate_unique_id()
+        }
+        
+        self.logger.debug(f"📁 File artifact created: {file_name}")
+        return artifact

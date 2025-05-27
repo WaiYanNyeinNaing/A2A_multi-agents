@@ -249,28 +249,26 @@ class A2AServer:
     def create_artifact(self, result: Dict[str, Any]) -> Dict[str, Any]:
         """Create artifact from agent result."""
         parts = []
+        import json
         
-        # Handle different result types
-        if "content" in result:  # Writing agent
-            parts.append({"type": "text", "text": result["content"]})
+        # Debug logging
+        logger.info(f"🔍 Creating artifact for result with keys: {list(result.keys())}")
+        
+        # Handle different result types with proper JSON serialization (order matters!)
+        if "summary" in result and "total_results" in result:  # Research agent
+            logger.info("📊 Processing research agent result")
+            parts.append({"type": "text", "text": json.dumps(result, indent=2)})
         elif "file_path" in result and "generation_successful" in result:  # New file-based image agent
-            # For file-based image generation, return file info as text
-            file_path = result.get("file_path", "unknown")
-            file_name = result.get("file_name", "unknown")
-            file_size = result.get("file_size_kb", 0)
-            log_message = result.get("log_message", "Image generated")
-            
-            parts.append({
-                "type": "text", 
-                "text": f"""🎨 Image Generated Successfully!
-
-📁 File saved to: {file_path}
-📋 Filename: {file_name}
-📊 File size: {file_size} KB
-
-{log_message}"""
-            })
+            logger.info("🎨 Processing image agent result")
+            parts.append({"type": "text", "text": json.dumps(result, indent=2)})
+        elif "content" in result and "word_count" in result:  # Writing agent - serialize to JSON for assistant
+            logger.info("✍️ Processing writing agent result")
+            parts.append({"type": "text", "text": json.dumps(result, indent=2)})
+        elif "content" in result:  # Legacy content format
+            logger.info("📝 Processing legacy content format")
+            parts.append({"type": "text", "text": result["content"]})
         elif "image_data" in result:  # Legacy base64 image data
+            logger.info("🖼️ Processing legacy image data")
             parts.append({
                 "type": "file",
                 "file": {
@@ -279,6 +277,10 @@ class A2AServer:
                     "bytes": result["image_data"]
                 }
             })
+        elif "summary" in result and "total_results" in result:  # Research agent
+            # Research agent results - serialize to JSON for assistant to parse
+            import json
+            parts.append({"type": "text", "text": json.dumps(result, indent=2)})
         elif "final_response" in result:  # Assistant agent
             parts.append({"type": "text", "text": result["final_response"]})
             

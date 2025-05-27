@@ -19,12 +19,33 @@ class ImageAgent(BaseAgent):
     """
     
     def __init__(self):
-        super().__init__(agent_type="image_generation_specialist")
+        super().__init__("image_generation_specialist")
         self.image_model = os.getenv('IMAGEN_MODEL_NAME', 'imagen-3.0-generate-002')
         
         # Setup image storage directory
         self.images_dir = Path("generated_images")
         self.images_dir.mkdir(exist_ok=True)
+        
+        # Initialize Gemini client for image generation
+        try:
+            # Load environment variables from .env file
+            from dotenv import load_dotenv
+            load_dotenv()
+            
+            import google.genai as genai
+            
+            # Try different authentication methods
+            api_key = os.getenv('GEMINI_API_KEY') or os.getenv('GOOGLE_API_KEY')
+            if api_key:
+                self.gemini_client = genai.Client(api_key=api_key)
+                self.logger.info("✅ Gemini client initialized with API key")
+            else:
+                # Try default authentication (ADC)
+                self.gemini_client = genai.Client()
+                self.logger.info("✅ Gemini client initialized with default auth")
+        except Exception as e:
+            self.logger.error(f"❌ Could not initialize Gemini client: {e}")
+            self.gemini_client = None
         
         # Setup logging
         self.logger = logging.getLogger(__name__)
@@ -42,6 +63,13 @@ class ImageAgent(BaseAgent):
             Dict containing image data, metadata, and generation details
         """
         try:
+            # Check if Gemini client is available
+            if not self.gemini_client:
+                return self.create_error_response(
+                    "Image generation unavailable: Missing GEMINI_API_KEY or GOOGLE_API_KEY environment variable. Please set your Google AI API key.",
+                    "api_key_missing"
+                )
+            
             from google.genai import types
             
             # Create enhanced prompt
@@ -100,6 +128,39 @@ class ImageAgent(BaseAgent):
         except Exception as e:
             self.logger.error(f"❌ Image generation failed: {e}")
             return self.create_error_response(str(e), "image_generation_error")
+    
+    def _create_mock_image(self, prompt: str, style: str) -> Dict[str, Any]:
+        """Create a mock image response for testing when API is not configured."""
+        # Create a simple mock image (1x1 pixel PNG)
+        mock_image_data = bytes([
+            0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,  # PNG signature
+            0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,  # IHDR chunk
+            0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01,  # 1x1 dimensions
+            0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,  # IHDR data
+            0x89, 0x00, 0x00, 0x00, 0x0A, 0x49, 0x44, 0x41,  # IDAT chunk
+            0x54, 0x78, 0x9C, 0x62, 0x00, 0x00, 0x00, 0x02,  # Compressed data
+            0x00, 0x01, 0xE2, 0x21, 0xBC, 0x33, 0x00, 0x00,  # IDAT end
+            0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE, 0x42,  # IEND chunk
+            0x60, 0x82
+        ])
+        
+        # Save mock image to file
+        save_result = self._save_image_to_file(mock_image_data, prompt, style)
+        
+        if save_result["success"]:
+            self.logger.info(f"🔧 Created mock image for testing: {save_result['file_name']}")
+            return self.create_success_response(
+                image_id=self.generate_unique_id(),
+                file_path=save_result["file_path"],
+                file_name=save_result["file_name"],
+                file_size_kb=save_result["file_size_kb"],
+                generation_successful=True,
+                prompt=prompt,
+                style=style,
+                log_message=f"Mock image created for testing (API not configured). File: {save_result['file_name']}"
+            )
+        else:
+            return self.create_error_response("Failed to save mock image", "mock_save_error")
     
     def _save_image_to_file(self, image_bytes: bytes, prompt: str, style: str) -> Dict[str, Any]:
         """Save image bytes to a local file with descriptive naming."""
@@ -195,5 +256,5 @@ class ImageAgent(BaseAgent):
             "type": "image_generation",
             "model": self.image_model,
             "capabilities": ["generate_image", "enhance_prompt"],
-            "status": "ready" if self.gemini_client else "not_ready"
+            "status": "ready"
         }

@@ -17,7 +17,7 @@ class ResearchAgent(BaseAgent):
     """
     
     def __init__(self):
-        super().__init__(agent_type="research_specialist")
+        super().__init__("research_specialist")
         self.serper_api_key = os.getenv('SERPER_API_KEY')
     
     def web_search(self, query: str, num_results: int = 10) -> Dict[str, Any]:
@@ -290,5 +290,5 @@ class ResearchAgent(BaseAgent):
             "model": self.model_name,
             "capabilities": ["web_search", "research_topic", "fact_check"],
             "apis": ["serper"],
-            "status": "ready" if self.gemini_client and self.serper_api_key else "not_ready"
+            "status": "ready" if self.serper_api_key else "limited"
         }

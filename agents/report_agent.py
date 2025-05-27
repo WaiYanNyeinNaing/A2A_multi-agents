@@ -16,7 +16,7 @@ class ReportAgent(BaseAgent):
     """
     
     def __init__(self):
-        super().__init__(agent_type="report_specialist")
+        super().__init__("report_specialist")
     
     def write_research_report(self, research_data: str, report_type: str = "comprehensive") -> Dict[str, Any]:
         """
@@ -260,5 +260,5 @@ class ReportAgent(BaseAgent):
             "capabilities": ["write_research_report", "convert_to_html", "generate_executive_summary", "create_slide_outline"],
             "supported_formats": ["markdown", "html"],
             "report_types": ["comprehensive", "executive", "academic", "summary"],
-            "status": "ready" if self.gemini_client else "not_ready"
+            "status": "ready"
         }
