@@ -60,6 +60,21 @@ class A2AServer:
             """Return Agent Card for discovery."""
             return self.generate_agent_card()
         
+        @self.app.get("/health")
+        async def health_check():
+            """Health check endpoint."""
+            return {
+                "status": "healthy",
+                "agent": self.agent_info["name"],
+                "port": self.port,
+                "capabilities": self.agent_info.get("capabilities", [])
+            }
+        
+        @self.app.get("/")
+        async def root():
+            """Root endpoint redirect to agent card."""
+            return self.generate_agent_card()
+        
         @self.app.post("/a2a")
         async def handle_a2a_request(request: JSONRPCRequest):
             """Handle A2A JSON-RPC requests."""
@@ -84,7 +99,7 @@ class A2AServer:
     
     def generate_agent_card(self) -> Dict[str, Any]:
         """Generate Agent Card for A2A discovery."""
-        base_url = f"http://localhost:{self.port}"
+        base_url = f"http://127.0.0.1:{self.port}"
         
         # Map agent capabilities to skills
         skills = []
@@ -351,7 +366,8 @@ class A2AServer:
     def run(self):
         """Run the A2A server."""
         logger.info(f"🚀 Starting A2A server for {self.agent_info['name']} on port {self.port}")
-        logger.info(f"📋 Agent Card: http://localhost:{self.port}/.well-known/agent.json")
+        logger.info(f"📋 Agent Card: http://127.0.0.1:{self.port}/.well-known/agent.json")
+        logger.info(f"🔍 Health Check: http://127.0.0.1:{self.port}/health")
         uvicorn.run(self.app, host="0.0.0.0", port=self.port)
 
 # Convenience function to start agent as A2A server
