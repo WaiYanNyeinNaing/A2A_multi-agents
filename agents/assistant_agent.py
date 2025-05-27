@@ -151,18 +151,41 @@ Analysis: '''
         for i, agent in enumerate(required_agents):
             self.logger.info(f"🔄 Step {i+1}/{len(required_agents)}: Executing {agent} agent")
             
+            # Add delay between agents for Windows compatibility (except first agent)
+            if i > 0:
+                import time
+                time.sleep(2)  # 2 second delay between agent calls
+                self.logger.info("⏳ Waiting 2 seconds before next agent...")
+            
             # Create context-aware prompt for each agent
             agent_prompt = self._create_context_aware_prompt(agent, user_input, accumulated_context, i, tasks)
             
-            # Execute agent task
-            if agent == "image":
-                results[agent] = self._call_agent_a2a(self.image_agent_url, agent_prompt)
-            elif agent == "writing":
-                results[agent] = self._call_agent_a2a(self.writer_agent_url, agent_prompt)
-            elif agent == "research":
-                results[agent] = self._call_agent_a2a(self.research_agent_url, agent_prompt)
-            elif agent == "report":
-                results[agent] = self._call_agent_a2a(self.report_agent_url, agent_prompt)
+            # Execute agent task with retry logic
+            max_retries = 3
+            for attempt in range(max_retries):
+                try:
+                    if agent == "image":
+                        results[agent] = self._call_agent_a2a(self.image_agent_url, agent_prompt)
+                    elif agent == "writing":
+                        results[agent] = self._call_agent_a2a(self.writer_agent_url, agent_prompt)
+                    elif agent == "research":
+                        results[agent] = self._call_agent_a2a(self.research_agent_url, agent_prompt)
+                    elif agent == "report":
+                        results[agent] = self._call_agent_a2a(self.report_agent_url, agent_prompt)
+                    
+                    # If successful, break retry loop
+                    if results[agent].get("success"):
+                        break
+                    elif attempt < max_retries - 1:
+                        self.logger.warning(f"⚠️ {agent} agent attempt {attempt + 1} failed, retrying...")
+                        time.sleep(1)  # Short delay before retry
+                        
+                except Exception as e:
+                    if attempt < max_retries - 1:
+                        self.logger.warning(f"⚠️ {agent} agent attempt {attempt + 1} error: {e}, retrying...")
+                        time.sleep(1)  # Short delay before retry
+                    else:
+                        results[agent] = {"success": False, "error": str(e)}
             
             # Add this agent's results to accumulated context for next agents
             if results[agent].get("success"):
@@ -323,8 +346,14 @@ Research Results: {research_data}'''
                 else:
                     return {"success": False, "error": "No artifacts returned"}
                 
+        except httpx.ConnectError as e:
+            return {"success": False, "error": f"Connection failed to {agent_url}: {str(e)}"}
+        except httpx.TimeoutException as e:
+            return {"success": False, "error": f"Request timeout for {agent_url}: {str(e)}"}
+        except httpx.HTTPStatusError as e:
+            return {"success": False, "error": f"HTTP error {e.response.status_code} for {agent_url}: {str(e)}"}
         except Exception as e:
-            return {"error": f"Agent communication failed: {str(e)}"}
+            return {"success": False, "error": f"Agent communication failed for {agent_url}: {str(e)}"}
 
     def _generate_final_response_sync(self, user_input: str, analysis: Dict[str, Any], agent_results: Dict[str, Any]) -> str:
         """Generate comprehensive final response combining ALL agent results."""
