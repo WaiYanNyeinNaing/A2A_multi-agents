@@ -18,6 +18,13 @@ class ResearchAgent(BaseAgent):
     
     def __init__(self):
         super().__init__("research_specialist")
+        # Load environment variables from .env file
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass  # dotenv not available, rely on system env vars
+        
         self.serper_api_key = os.getenv('SERPER_API_KEY')
     
     def web_search(self, query: str, num_results: int = 10) -> Dict[str, Any]:
