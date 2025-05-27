@@ -66,7 +66,15 @@ class A2AClient:
         }
         
         try:
-            async with httpx.AsyncClient(timeout=self.timeout) as client:
+            # Configure HTTP client for Windows compatibility
+            timeout_config = httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0)
+            limits = httpx.Limits(max_connections=10, max_keepalive_connections=5)
+            
+            async with httpx.AsyncClient(
+                timeout=timeout_config,
+                limits=limits,
+                follow_redirects=True
+            ) as client:
                 # Get agent card if not cached
                 if agent_url not in self.agent_cards:
                     await self.discover_agent(agent_url)

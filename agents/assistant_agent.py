@@ -23,11 +23,11 @@ class AssistantAgent(BaseAgent):
         from dotenv import load_dotenv
         load_dotenv()
         
-        # A2A Agent URLs
-        self.image_agent_url = os.getenv('IMAGE_AGENT_URL', 'http://localhost:8001')
-        self.writer_agent_url = os.getenv('WRITER_AGENT_URL', 'http://localhost:8002')
-        self.research_agent_url = os.getenv('RESEARCH_AGENT_URL', 'http://localhost:8003')
-        self.report_agent_url = os.getenv('REPORT_AGENT_URL', 'http://localhost:8004')
+        # A2A Agent URLs (use 127.0.0.1 for Windows compatibility)
+        self.image_agent_url = os.getenv('IMAGE_AGENT_URL', 'http://127.0.0.1:8001')
+        self.writer_agent_url = os.getenv('WRITER_AGENT_URL', 'http://127.0.0.1:8002')
+        self.research_agent_url = os.getenv('RESEARCH_AGENT_URL', 'http://127.0.0.1:8003')
+        self.report_agent_url = os.getenv('REPORT_AGENT_URL', 'http://127.0.0.1:8004')
         
         # Setup logging
         self.logger = logging.getLogger(__name__)
@@ -270,7 +270,15 @@ Research Results: {research_data}'''
                 "id": self.generate_unique_id()
             }
             
-            with httpx.Client(timeout=30.0) as client:
+            # Configure HTTP client for Windows compatibility
+            timeout_config = httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0)
+            limits = httpx.Limits(max_connections=10, max_keepalive_connections=5)
+            
+            with httpx.Client(
+                timeout=timeout_config,
+                limits=limits,
+                follow_redirects=True
+            ) as client:
                 response = client.post(f"{agent_url}/a2a", json=payload)
                 response.raise_for_status()
                 result = response.json()
