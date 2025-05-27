@@ -148,49 +148,35 @@ Analysis: '''
         self.logger.info(f"🎯 Starting sequential coordination for {len(required_agents)} agents")
         self.logger.info(f"📋 Planned tasks: {tasks}")
         
+        # Log agent URLs for debugging
+        self.logger.info("🔗 Agent URLs:")
+        self.logger.info(f"   Image: {self.image_agent_url}")
+        self.logger.info(f"   Writer: {self.writer_agent_url}") 
+        self.logger.info(f"   Research: {self.research_agent_url}")
+        self.logger.info(f"   Report: {self.report_agent_url}")
+        
         for i, agent in enumerate(required_agents):
             self.logger.info(f"🔄 Step {i+1}/{len(required_agents)}: Executing {agent} agent")
             
-            # Add delay between agents for Windows compatibility (except first agent)
-            if i > 0:
-                import time
-                delay_seconds = 5  # Increased delay for Windows
-                time.sleep(delay_seconds)
-                self.logger.info(f"⏳ Waiting {delay_seconds} seconds before next agent...")
-                
-                # Force garbage collection to clean up HTTP connections
-                import gc
-                gc.collect()
+            # Log current step without delays
+            self.logger.info(f"🔄 Processing {agent} agent...")
             
             # Create context-aware prompt for each agent
             agent_prompt = self._create_context_aware_prompt(agent, user_input, accumulated_context, i, tasks)
             
-            # Execute agent task with retry logic
-            max_retries = 3
-            for attempt in range(max_retries):
-                try:
-                    if agent == "image":
-                        results[agent] = self._call_agent_a2a(self.image_agent_url, agent_prompt)
-                    elif agent == "writing":
-                        results[agent] = self._call_agent_a2a(self.writer_agent_url, agent_prompt)
-                    elif agent == "research":
-                        results[agent] = self._call_agent_a2a(self.research_agent_url, agent_prompt)
-                    elif agent == "report":
-                        results[agent] = self._call_agent_a2a(self.report_agent_url, agent_prompt)
-                    
-                    # If successful, break retry loop
-                    if results[agent].get("success"):
-                        break
-                    elif attempt < max_retries - 1:
-                        self.logger.warning(f"⚠️ {agent} agent attempt {attempt + 1} failed, retrying...")
-                        time.sleep(1)  # Short delay before retry
-                        
-                except Exception as e:
-                    if attempt < max_retries - 1:
-                        self.logger.warning(f"⚠️ {agent} agent attempt {attempt + 1} error: {e}, retrying...")
-                        time.sleep(1)  # Short delay before retry
-                    else:
-                        results[agent] = {"success": False, "error": str(e)}
+            # Execute agent task directly
+            try:
+                if agent == "image":
+                    results[agent] = self._call_agent_a2a(self.image_agent_url, agent_prompt)
+                elif agent == "writing":
+                    results[agent] = self._call_agent_a2a(self.writer_agent_url, agent_prompt)
+                elif agent == "research":
+                    results[agent] = self._call_agent_a2a(self.research_agent_url, agent_prompt)
+                elif agent == "report":
+                    results[agent] = self._call_agent_a2a(self.report_agent_url, agent_prompt)
+            except Exception as e:
+                self.logger.error(f"❌ Failed to call {agent} agent: {e}")
+                results[agent] = {"success": False, "error": str(e)}
             
             # Add this agent's results to accumulated context for next agents
             if results[agent].get("success"):
@@ -213,14 +199,29 @@ Analysis: '''
             return original_request
             
         elif agent == "image" and "research_result" in context:
-            # Image generation after research - enhance prompt with research context
+            # Image generation after research - extract key topics only
             research_data = context["research_result"]
+            
+            # Extract just the summary/key topics instead of full research data
+            summary = "No summary available"
+            try:
+                if isinstance(research_data, dict) and "artifacts" in research_data:
+                    first_artifact = research_data["artifacts"][0]
+                    if "parts" in first_artifact and first_artifact["parts"]:
+                        content = first_artifact["parts"][0].get("text", "")
+                        if content.strip().startswith("{"):
+                            import json
+                            parsed = json.loads(content)
+                            summary = parsed.get("summary", "")[:200]  # Limit to 200 chars
+                            
+            except Exception:
+                summary = f"Research about: {original_request}"
+            
             return f'''Create an image related to: {original_request}
 
-Use this research context to make the image more accurate and relevant:
-Research Results: {research_data}
+Key research findings: {summary}
 
-Generate a visual that represents the key concepts from the research.'''
+Generate a professional visual that represents these concepts.'''
             
         elif agent == "writing" and "research_result" in context:
             # Writing after research - use research summary instead of raw data
@@ -298,23 +299,32 @@ Research Results: {research_data}'''
                 "id": self.generate_unique_id()
             }
             
-            # Use requests library for better Windows compatibility
+            # Simple HTTP request for Windows compatibility
             import requests
             
-            headers = {
-                "Connection": "close",  # Force connection close
-                "Content-Type": "application/json"
-            }
+            target_url = f"{agent_url}/a2a"
+            self.logger.info(f"🔌 Sending request to {target_url}...")
+            self.logger.info(f"📤 Payload: {payload}")
             
-            self.logger.info(f"🔌 Connecting to {agent_url} with requests library...")
-            response = requests.post(
-                f"{agent_url}/a2a", 
-                json=payload,
-                headers=headers,
-                timeout=(15, 45),  # (connect_timeout, read_timeout)
-                allow_redirects=True
-            )
-            response.raise_for_status()
+            # Basic POST request with minimal configuration  
+            try:
+                response = requests.post(target_url, json=payload, timeout=30)
+                self.logger.info(f"📥 Response status: {response.status_code}")
+                
+                if response.status_code != 200:
+                    error_msg = f"HTTP {response.status_code}: {response.text[:200]}"
+                    self.logger.error(f"❌ HTTP Error: {error_msg}")
+                    return {"success": False, "error": error_msg}
+                    
+            except requests.exceptions.ConnectionError as e:
+                error_msg = f"Connection failed to {target_url}: {str(e)}"
+                self.logger.error(f"❌ Connection Error: {error_msg}")
+                return {"success": False, "error": error_msg}
+            except Exception as e:
+                error_msg = f"Request failed to {target_url}: {str(e)}"
+                self.logger.error(f"❌ Request Error: {error_msg}")
+                return {"success": False, "error": error_msg}
+                
             result = response.json()
             
             # Extract the actual result from A2A response
@@ -357,14 +367,10 @@ Research Results: {research_data}'''
                 else:
                     return {"success": False, "error": "No artifacts returned"}
                 
-        except requests.exceptions.ConnectionError as e:
-            return {"success": False, "error": f"Connection failed to {agent_url}: {str(e)}"}
-        except requests.exceptions.Timeout as e:
-            return {"success": False, "error": f"Request timeout for {agent_url}: {str(e)}"}
-        except requests.exceptions.HTTPError as e:
-            return {"success": False, "error": f"HTTP error for {agent_url}: {str(e)}"}
         except Exception as e:
-            return {"success": False, "error": f"Agent communication failed for {agent_url}: {str(e)}"}
+            error_msg = f"Unexpected error with {agent_url}: {str(e)}"
+            self.logger.error(f"❌ Unexpected Error: {error_msg}")
+            return {"success": False, "error": error_msg}
 
     def _generate_final_response_sync(self, user_input: str, analysis: Dict[str, Any], agent_results: Dict[str, Any]) -> str:
         """Generate comprehensive final response combining ALL agent results."""
