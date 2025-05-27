@@ -347,8 +347,8 @@ Research Results: {research_data}'''
                             if content.strip().startswith("{"):
                                 parsed_data = json.loads(content)
                                 return {"success": True, "artifacts": artifacts, **parsed_data}
-                            except:
-                                pass
+                        except:
+                            pass
                         
                         # Return with artifacts
                         return {"success": True, "artifacts": artifacts}
