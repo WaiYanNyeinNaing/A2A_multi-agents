@@ -59,6 +59,15 @@ my_results/
 temp/
 tmp/
 generated_images/
+*_results/
+*_output/
+*.png
+*.jpg
+*.jpeg
+*.gif
+*.bmp
+test_*.txt
+*_test.json
 
 # UV lock file (optional, but recommended to include for reproducibility)
 # uv.lock
