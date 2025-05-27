@@ -154,8 +154,13 @@ Analysis: '''
             # Add delay between agents for Windows compatibility (except first agent)
             if i > 0:
                 import time
-                time.sleep(2)  # 2 second delay between agent calls
-                self.logger.info("⏳ Waiting 2 seconds before next agent...")
+                delay_seconds = 5  # Increased delay for Windows
+                time.sleep(delay_seconds)
+                self.logger.info(f"⏳ Waiting {delay_seconds} seconds before next agent...")
+                
+                # Force garbage collection to clean up HTTP connections
+                import gc
+                gc.collect()
             
             # Create context-aware prompt for each agent
             agent_prompt = self._create_context_aware_prompt(agent, user_input, accumulated_context, i, tasks)
@@ -293,49 +298,55 @@ Research Results: {research_data}'''
                 "id": self.generate_unique_id()
             }
             
-            # Configure HTTP client for Windows compatibility
-            timeout_config = httpx.Timeout(connect=10.0, read=30.0, write=10.0, pool=10.0)
-            limits = httpx.Limits(max_connections=10, max_keepalive_connections=5)
+            # Use requests library for better Windows compatibility
+            import requests
             
-            with httpx.Client(
-                timeout=timeout_config,
-                limits=limits,
-                follow_redirects=True
-            ) as client:
-                response = client.post(f"{agent_url}/a2a", json=payload)
-                response.raise_for_status()
-                result = response.json()
+            headers = {
+                "Connection": "close",  # Force connection close
+                "Content-Type": "application/json"
+            }
+            
+            self.logger.info(f"🔌 Connecting to {agent_url} with requests library...")
+            response = requests.post(
+                f"{agent_url}/a2a", 
+                json=payload,
+                headers=headers,
+                timeout=(15, 45),  # (connect_timeout, read_timeout)
+                allow_redirects=True
+            )
+            response.raise_for_status()
+            result = response.json()
+            
+            # Extract the actual result from A2A response
+            if result.get("result") and result["result"].get("artifacts"):
+                artifacts = result["result"]["artifacts"]
                 
-                # Extract the actual result from A2A response
-                if result.get("result") and result["result"].get("artifacts"):
-                    artifacts = result["result"]["artifacts"]
+                # Extract data from first artifact (the main response)
+                if artifacts and len(artifacts) > 0:
+                    first_artifact = artifacts[0]
                     
-                    # Extract data from first artifact (the main response)
-                    if artifacts and len(artifacts) > 0:
-                        first_artifact = artifacts[0]
-                        
-                        # Check if artifact has parts array
-                        if "parts" in first_artifact and first_artifact["parts"]:
-                            first_part = first_artifact["parts"][0]
-                            if first_part.get("type") == "text":
-                                content = first_part.get("text", "")
-                                try:
-                                    # Try to parse as JSON (for structured responses)
-                                    import json
-                                    if content.strip().startswith("{"):
-                                        parsed_data = json.loads(content)
-                                        return {"success": True, "artifacts": artifacts, **parsed_data}
-                                except:
-                                    pass
-                        
-                        # Legacy format support
-                        elif first_artifact.get("type") == "text":
-                            content = first_artifact.get("content", "")
+                    # Check if artifact has parts array
+                    if "parts" in first_artifact and first_artifact["parts"]:
+                        first_part = first_artifact["parts"][0]
+                        if first_part.get("type") == "text":
+                            content = first_part.get("text", "")
                             try:
+                                # Try to parse as JSON (for structured responses)
                                 import json
                                 if content.strip().startswith("{"):
                                     parsed_data = json.loads(content)
                                     return {"success": True, "artifacts": artifacts, **parsed_data}
+                            except:
+                                pass
+                    
+                    # Legacy format support
+                    elif first_artifact.get("type") == "text":
+                        content = first_artifact.get("content", "")
+                        try:
+                            import json
+                            if content.strip().startswith("{"):
+                                parsed_data = json.loads(content)
+                                return {"success": True, "artifacts": artifacts, **parsed_data}
                             except:
                                 pass
                         
@@ -346,12 +357,12 @@ Research Results: {research_data}'''
                 else:
                     return {"success": False, "error": "No artifacts returned"}
                 
-        except httpx.ConnectError as e:
+        except requests.exceptions.ConnectionError as e:
             return {"success": False, "error": f"Connection failed to {agent_url}: {str(e)}"}
-        except httpx.TimeoutException as e:
+        except requests.exceptions.Timeout as e:
             return {"success": False, "error": f"Request timeout for {agent_url}: {str(e)}"}
-        except httpx.HTTPStatusError as e:
-            return {"success": False, "error": f"HTTP error {e.response.status_code} for {agent_url}: {str(e)}"}
+        except requests.exceptions.HTTPError as e:
+            return {"success": False, "error": f"HTTP error for {agent_url}: {str(e)}"}
         except Exception as e:
             return {"success": False, "error": f"Agent communication failed for {agent_url}: {str(e)}"}
 
