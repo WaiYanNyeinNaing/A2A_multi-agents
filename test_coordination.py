@@ -27,9 +27,12 @@ async def test_assistant_coordination():
     }
     
     try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
+        # Configure HTTP client for Windows compatibility
+        timeout_config = httpx.Timeout(connect=10.0, read=60.0, write=10.0, pool=10.0)
+        
+        async with httpx.AsyncClient(timeout=timeout_config) as client:
             print("📤 Sending coordination request to assistant agent...")
-            response = await client.post("http://localhost:8000/a2a", json=payload)
+            response = await client.post("http://127.0.0.1:8000/a2a", json=payload)
             response.raise_for_status()
             result = response.json()
             

@@ -255,11 +255,11 @@ async def check_agent_status():
     print("-" * 40)
     
     agents = {
-        "Assistant Agent": "http://localhost:8000",
-        "Writing Specialist": "http://localhost:8002", 
-        "Image Generation Specialist": "http://localhost:8001",
-        "Research Specialist": "http://localhost:8003",
-        "Report Writing Specialist": "http://localhost:8004"
+        "Assistant Agent": "http://127.0.0.1:8000",
+        "Writing Specialist": "http://127.0.0.1:8002", 
+        "Image Generation Specialist": "http://127.0.0.1:8001",
+        "Research Specialist": "http://127.0.0.1:8003",
+        "Report Writing Specialist": "http://127.0.0.1:8004"
     }
     
     client = A2AClient()
@@ -353,11 +353,11 @@ async def main():
     print("💡 This tool lets you send custom prompts to AI agents and save the results.")
     
     agents = {
-        "1": ("Assistant Agent (Orchestrator)", "http://localhost:8000", "assistant"),
-        "2": ("Writing Specialist", "http://localhost:8002", "writing"),
-        "3": ("Image Generation Specialist", "http://localhost:8001", "image"),
-        "4": ("Research Specialist", "http://localhost:8003", "research"),
-        "5": ("Report Writing Specialist", "http://localhost:8004", "report")
+        "1": ("Assistant Agent (Orchestrator)", "http://127.0.0.1:8000", "assistant"),
+        "2": ("Writing Specialist", "http://127.0.0.1:8002", "writing"),
+        "3": ("Image Generation Specialist", "http://127.0.0.1:8001", "image"),
+        "4": ("Research Specialist", "http://127.0.0.1:8003", "research"),
+        "5": ("Report Writing Specialist", "http://127.0.0.1:8004", "report")
     }
     
     while True:
