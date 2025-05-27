@@ -17,6 +17,12 @@ class ReportAgent(BaseAgent):
     
     def __init__(self):
         super().__init__("report_specialist")
+        # Load environment variables from .env file
+        try:
+            from dotenv import load_dotenv
+            load_dotenv()
+        except ImportError:
+            pass  # dotenv not available, rely on system env vars
     
     def write_research_report(self, research_data: str, report_type: str = "comprehensive") -> Dict[str, Any]:
         """
